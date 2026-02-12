@@ -260,11 +260,12 @@ function JjAdapter:symmetric_diff_revs(rev_arg)
     return
   end
 
-  local git_cmd = config.get_config().git_cmd
-  local out, code, stderr = utils.job(utils.flatten({
-    git_cmd,
-    { "merge-base", h1, h2 },
-  }), {
+  -- Resolve a single fork-point commit with JJ revsets. This mirrors
+  -- merge-base style behavior, but works in pure JJ repositories as well.
+  local revset = fmt('latest(fork_point(commit_id("%s") | commit_id("%s")), 1)', h1, h2)
+  local out, code, stderr = self:exec_sync(
+    { "log", "-r", revset, "-T", [[commit_id ++ "\n"]], "--no-graph" },
+    {
     cwd = self.ctx.toplevel,
     retry = 2,
     fail_on_empty = true,
@@ -274,7 +275,7 @@ function JjAdapter:symmetric_diff_revs(rev_arg)
   if code ~= 0 or not out[1] then
     utils.err(utils.vec_join(
       fmt("Failed to compute merge-base for rev range %s!", utils.str_quote(rev_arg)),
-      "Git output: ",
+      "Jujutsu output: ",
       stderr
     ))
     return
