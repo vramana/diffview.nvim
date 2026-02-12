@@ -41,6 +41,7 @@ M.defaults = {
   enhanced_diff_hl = false,
   git_cmd = { "git" },
   hg_cmd = { "hg" },
+  jj_cmd = { "jj" },
   use_icons = true,
   show_help_hints = true,
   watch_index = true,
@@ -571,6 +572,14 @@ function M.setup(user_config)
 
   if #M._config.git_cmd == 0 then
     M._config.git_cmd = M.defaults.git_cmd
+  end
+
+  if #M._config.hg_cmd == 0 then
+    M._config.hg_cmd = M.defaults.hg_cmd
+  end
+
+  if #M._config.jj_cmd == 0 then
+    M._config.jj_cmd = M.defaults.jj_cmd
   end
 
   do

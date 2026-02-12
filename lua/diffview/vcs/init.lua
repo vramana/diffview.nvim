@@ -1,5 +1,6 @@
 local GitAdapter = require('diffview.vcs.adapters.git').GitAdapter
 local HgAdapter = require('diffview.vcs.adapters.hg').HgAdapter
+local JjAdapter = require('diffview.vcs.adapters.jj').JjAdapter
 
 local M = {}
 
@@ -15,7 +16,7 @@ local M = {}
 ---@return string? err
 ---@return VCSAdapter? adapter
 function M.get_adapter(opt)
-  local adapter_kinds = { GitAdapter, HgAdapter }
+  local adapter_kinds = { JjAdapter, GitAdapter, HgAdapter }
 
   if not opt.cmd_ctx then
     opt.cmd_ctx = {}
