@@ -307,10 +307,9 @@ function JjAdapter:parse_revs(rev_arg, opt)
   local left
   local right
 
-  local head = self:head_rev()
-
   if not rev_arg then
-    left = head or JjRev.new_null_tree()
+    local parent_hash = self:resolve_rev_arg("@-") or self:resolve_rev_arg("root()")
+    left = parent_hash and JjRev(RevType.COMMIT, parent_hash) or JjRev.new_null_tree()
     right = JjRev(RevType.LOCAL)
   elseif rev_arg:match("%.%.%.") then
     left, right = self:symmetric_diff_revs(rev_arg)

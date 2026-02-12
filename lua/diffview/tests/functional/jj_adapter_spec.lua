@@ -24,6 +24,8 @@ describe("diffview.vcs.adapters.jj", function()
 
     local rev_map = {
       ["@"] = "head_hash",
+      ["@-"] = "parent_hash",
+      ["root()"] = "root_hash",
       ["main"] = "main_hash",
       ["feature"] = "feature_hash",
     }
@@ -49,7 +51,7 @@ describe("diffview.vcs.adapters.jj", function()
       local left, right = adapter:parse_revs(nil, {})
 
       eq(RevType.COMMIT, left.type)
-      eq("head_hash", left.commit)
+      eq("parent_hash", left.commit)
       eq(RevType.LOCAL, right.type)
     end)
 
