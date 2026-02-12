@@ -211,9 +211,53 @@ function JjAdapter:get_dir(path)
   return root
 end
 
+---@return table<string, boolean>
+function JjAdapter:get_bookmark_map()
+  if self._bookmark_map then
+    return self._bookmark_map
+  end
+
+  local out, code = self:exec_sync(
+    { "bookmark", "list", "-a", "-T", [[name ++ "\n"]] },
+    { cwd = self.ctx.toplevel, silent = true }
+  )
+
+  local map = {}
+  if code == 0 then
+    for _, line in ipairs(out) do
+      local name = vim.trim(line)
+      if name ~= "" then
+        map[name] = true
+      end
+    end
+  end
+
+  self._bookmark_map = map
+  return map
+end
+
+---@param name string
+---@return boolean
+function JjAdapter:has_bookmark(name)
+  return self:get_bookmark_map()[name] == true
+end
+
+---@param rev_arg string
+---@return string
+function JjAdapter:normalize_rev_arg(rev_arg)
+  -- Special-case fallback for repositories that use 'master' instead of 'main'.
+  if rev_arg == "main" and not self:has_bookmark("main") and self:has_bookmark("master") then
+    return "master"
+  end
+
+  return rev_arg
+end
+
 ---@param rev_arg string
 ---@return string?
 function JjAdapter:resolve_rev_arg(rev_arg)
+  rev_arg = self:normalize_rev_arg(rev_arg)
+
   local out, code, stderr = self:exec_sync(
     { "show", "-T", "commit_id", rev_arg, "--no-patch" },
     {
@@ -250,8 +294,8 @@ end
 ---@return JjRev? left
 ---@return JjRev? right
 function JjAdapter:symmetric_diff_revs(rev_arg)
-  local r1 = rev_arg:match("(.+)%.%.%.") or "@"
-  local r2 = rev_arg:match("%.%.%.(.+)") or "@"
+  local r1 = self:normalize_rev_arg(rev_arg:match("(.+)%.%.%.") or "@")
+  local r2 = self:normalize_rev_arg(rev_arg:match("%.%.%.(.+)") or "@")
 
   local h1 = self:resolve_rev_arg(r1)
   local h2 = self:resolve_rev_arg(r2)
@@ -315,8 +359,8 @@ function JjAdapter:parse_revs(rev_arg, opt)
   elseif rev_arg:match("%.%.%.") then
     left, right = self:symmetric_diff_revs(rev_arg)
   elseif self:is_rev_arg_range(rev_arg) then
-    local r1 = rev_arg:match("^(.-)%.%.") or "@"
-    local r2 = rev_arg:match("%.%.(.-)$") or "@"
+    local r1 = self:normalize_rev_arg(rev_arg:match("^(.-)%.%.") or "@")
+    local r2 = self:normalize_rev_arg(rev_arg:match("%.%.(.-)$") or "@")
 
     if r1 == "" then r1 = "@" end
     if r2 == "" then r2 = "@" end
@@ -331,7 +375,7 @@ function JjAdapter:parse_revs(rev_arg, opt)
     left = JjRev(RevType.COMMIT, h1)
     right = JjRev(RevType.COMMIT, h2)
   else
-    local hash = self:resolve_rev_arg(rev_arg)
+    local hash = self:resolve_rev_arg(self:normalize_rev_arg(rev_arg))
     if not hash then
       return
     end

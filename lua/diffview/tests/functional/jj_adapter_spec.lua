@@ -27,6 +27,7 @@ describe("diffview.vcs.adapters.jj", function()
       ["@-"] = "parent_hash",
       ["root()"] = "root_hash",
       ["main"] = "main_hash",
+      ["master"] = "master_hash",
       ["feature"] = "feature_hash",
     }
 
@@ -40,6 +41,10 @@ describe("diffview.vcs.adapters.jj", function()
 
     adapter.symmetric_diff_revs = function(_, _)
       return adapter.Rev(RevType.COMMIT, "merge_base_hash"), adapter.Rev(RevType.COMMIT, rev_map["@"])
+    end
+
+    adapter.has_bookmark = function(_, _)
+      return true
     end
 
     return adapter
@@ -61,6 +66,19 @@ describe("diffview.vcs.adapters.jj", function()
 
       eq(RevType.COMMIT, left.type)
       eq("main_hash", left.commit)
+      eq(RevType.LOCAL, right.type)
+    end)
+
+    it("falls back from main to master when main bookmark is absent", function()
+      local adapter = new_adapter()
+      adapter.has_bookmark = function(_, name)
+        return name == "master"
+      end
+
+      local left, right = adapter:parse_revs("main", {})
+
+      eq(RevType.COMMIT, left.type)
+      eq("master_hash", left.commit)
       eq(RevType.LOCAL, right.type)
     end)
 
