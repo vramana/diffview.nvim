@@ -337,6 +337,17 @@ DiffView.update_files = debounce.debounce_trailing(
     local perf = PerfTimer("[DiffView] Status Update")
     self:ensure_layout()
 
+    local new_left, new_right = self.adapter:refresh_revs(self.rev_arg, self.left, self.right)
+    if new_left and new_right then
+      self.left = new_left
+      self.right = new_right
+
+      if not self.rev_arg then
+        self.panel.rev_pretty_name = self.adapter:rev_to_pretty_string(self.left, self.right)
+      end
+    end
+    perf:lap("refreshed revs")
+
     -- If left is tracking HEAD and right is LOCAL: Update HEAD rev.
     local new_head
     if self.left.track_head and self.right.type == RevType.LOCAL then

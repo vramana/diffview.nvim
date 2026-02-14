@@ -395,6 +395,31 @@ function JjAdapter:parse_revs(rev_arg, opt)
   return left, right
 end
 
+---@param rev_arg string?
+---@param left Rev
+---@param right Rev
+---@return Rev? new_left
+---@return Rev? new_right
+function JjAdapter:refresh_revs(rev_arg, left, right)
+  -- Keep bookmark state current between refreshes.
+  self._bookmark_map = nil
+
+  local new_left, new_right = self:parse_revs(rev_arg, {})
+  if not (new_left and new_right) then
+    return nil, nil
+  end
+
+  if new_left.type == left.type
+    and new_right.type == right.type
+    and new_left:object_name() == left:object_name()
+    and new_right:object_name() == right:object_name()
+  then
+    return nil, nil
+  end
+
+  return new_left, new_right
+end
+
 ---@param left Rev
 ---@param right Rev
 ---@return string[]
