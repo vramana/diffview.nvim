@@ -22,7 +22,7 @@ describe("diffview.vcs.adapters.jj", function()
 
     JjAdapter.get_dir = old_get_dir
 
-    local rev_map = {
+    adapter._rev_map = {
       ["@"] = "head_hash",
       ["@-"] = "parent_hash",
       ["root()"] = "root_hash",
@@ -32,15 +32,15 @@ describe("diffview.vcs.adapters.jj", function()
     }
 
     adapter.resolve_rev_arg = function(_, rev)
-      return rev_map[rev]
+      return adapter._rev_map[rev]
     end
 
     adapter.head_rev = function(_)
-      return adapter.Rev(RevType.COMMIT, rev_map["@"] or "head_hash", true)
+      return adapter.Rev(RevType.COMMIT, adapter._rev_map["@"] or "head_hash", true)
     end
 
     adapter.symmetric_diff_revs = function(_, _)
-      return adapter.Rev(RevType.COMMIT, "merge_base_hash"), adapter.Rev(RevType.COMMIT, rev_map["@"])
+      return adapter.Rev(RevType.COMMIT, "merge_base_hash"), adapter.Rev(RevType.COMMIT, adapter._rev_map["@"])
     end
 
     adapter.has_bookmark = function(_, _)
@@ -112,6 +112,30 @@ describe("diffview.vcs.adapters.jj", function()
       eq("main_hash", opt.left.commit)
       eq(RevType.LOCAL, opt.right.type)
       eq("lua/diffview/init.lua", opt.options.selected_file)
+    end)
+  end)
+
+  describe("refresh_revs()", function()
+    it("re-resolves symbolic revs", function()
+      local adapter = new_adapter()
+      local left, right = adapter:parse_revs("main", {})
+
+      adapter._rev_map["main"] = "next_main_hash"
+
+      local new_left, new_right = adapter:refresh_revs("main", left, right)
+      eq("next_main_hash", new_left.commit)
+      eq(RevType.LOCAL, new_right.type)
+    end)
+
+    it("updates default baseline when parent changes", function()
+      local adapter = new_adapter()
+      local left, right = adapter:parse_revs(nil, {})
+
+      adapter._rev_map["@-"] = "next_parent_hash"
+
+      local new_left, new_right = adapter:refresh_revs(nil, left, right)
+      eq("next_parent_hash", new_left.commit)
+      eq(RevType.LOCAL, new_right.type)
     end)
   end)
 
