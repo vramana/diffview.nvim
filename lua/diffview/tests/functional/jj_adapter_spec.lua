@@ -98,8 +98,7 @@ describe("diffview.vcs.adapters.jj", function()
 
       eq(RevType.COMMIT, left.type)
       eq("merge_base_hash", left.commit)
-      eq(RevType.COMMIT, right.type)
-      eq("head_hash", right.commit)
+      eq(RevType.LOCAL, right.type)
     end)
   end)
 
@@ -136,6 +135,28 @@ describe("diffview.vcs.adapters.jj", function()
       local new_left, new_right = adapter:refresh_revs(nil, left, right)
       eq("next_parent_hash", new_left.commit)
       eq(RevType.LOCAL, new_right.type)
+    end)
+  end)
+
+  describe("force_entry_refresh_on_noop()", function()
+    it("returns true for ranges that include LOCAL", function()
+      local adapter = new_adapter()
+      local ok = adapter:force_entry_refresh_on_noop(
+        adapter.Rev(RevType.COMMIT, "left_hash"),
+        adapter.Rev(RevType.LOCAL)
+      )
+
+      eq(true, ok)
+    end)
+
+    it("returns false for commit-to-commit ranges", function()
+      local adapter = new_adapter()
+      local ok = adapter:force_entry_refresh_on_noop(
+        adapter.Rev(RevType.COMMIT, "left_hash"),
+        adapter.Rev(RevType.COMMIT, "right_hash")
+      )
+
+      eq(false, ok)
     end)
   end)
 

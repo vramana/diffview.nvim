@@ -357,7 +357,14 @@ function JjAdapter:parse_revs(rev_arg, opt)
     left = parent_hash and JjRev(RevType.COMMIT, parent_hash) or JjRev.new_null_tree()
     right = JjRev(RevType.LOCAL)
   elseif rev_arg:match("%.%.%.") then
+    local r2 = self:normalize_rev_arg(rev_arg:match("%.%.%.(.+)") or "@")
     left, right = self:symmetric_diff_revs(rev_arg)
+    if left and right and r2 == "@" then
+      -- In JJ, '@' is the mutable working-copy commit. Keep the right side as
+      -- LOCAL so refresh reflects latest filesystem content even when commit
+      -- identifiers are stable across edits.
+      right = JjRev(RevType.LOCAL)
+    end
   elseif self:is_rev_arg_range(rev_arg) then
     local r1 = self:normalize_rev_arg(rev_arg:match("^(.-)%.%.") or "@")
     local r2 = self:normalize_rev_arg(rev_arg:match("%.%.(.-)$") or "@")
@@ -418,6 +425,13 @@ function JjAdapter:refresh_revs(rev_arg, left, right)
   end
 
   return new_left, new_right
+end
+
+---@param left Rev
+---@param right Rev
+---@return boolean
+function JjAdapter:force_entry_refresh_on_noop(left, right)
+  return self:has_local(left, right)
 end
 
 ---@param left Rev

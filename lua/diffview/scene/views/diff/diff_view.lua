@@ -26,6 +26,24 @@ local pl = lazy.access(utils, "path") ---@type PathLib
 
 local M = {}
 
+---@param a Rev?
+---@param b Rev?
+---@return boolean
+local function same_rev(a, b)
+  if a == nil and b == nil then
+    return true
+  end
+
+  if a == nil or b == nil then
+    return false
+  end
+
+  return a.type == b.type
+    and a.commit == b.commit
+    and a.stage == b.stage
+    and a.track_head == b.track_head
+end
+
 ---@class DiffViewOptions
 ---@field show_untracked? boolean
 ---@field selected_file? string Path to the preferred initially selected file.
@@ -404,25 +422,52 @@ DiffView.update_files = debounce.debounce_trailing(
 
       for _, opr in ipairs(script) do
         if opr == EditToken.NOOP then
-          -- Update status and stats
-          local a_stats = v.cur_files[ai].stats
-          local b_stats = v.new_files[bi].stats
+          local old_file = v.cur_files[ai]
+          local new_file = v.new_files[bi]
+          local replace_noop = self.adapter:force_entry_refresh_on_noop(self.left, self.right)
 
-          if a_stats then
-            v.cur_files[ai].stats = vim.tbl_extend("force", a_stats, b_stats or {})
+          -- Even with a stable path, rev endpoints can change on refresh
+          -- (e.g. symbolic revs like `master...@`). Replace the entry so
+          -- the displayed content comes from the latest rev pair.
+          if not replace_noop then
+            replace_noop = not (
+              same_rev(utils.tbl_access(old_file, "revs.a"), utils.tbl_access(new_file, "revs.a"))
+              and same_rev(utils.tbl_access(old_file, "revs.b"), utils.tbl_access(new_file, "revs.b"))
+              and same_rev(utils.tbl_access(old_file, "revs.c"), utils.tbl_access(new_file, "revs.c"))
+              and same_rev(utils.tbl_access(old_file, "revs.d"), utils.tbl_access(new_file, "revs.d"))
+            )
+          end
+
+          if replace_noop then
+            if self.panel.cur_file == old_file then
+              self.panel:set_cur_file(new_file)
+            end
+
+            old_file:destroy(true)
+            v.cur_files[ai] = new_file
+            ai = ai + 1
+            bi = bi + 1
           else
-            v.cur_files[ai].stats = v.new_files[bi].stats
+            -- Update status and stats
+            local a_stats = v.cur_files[ai].stats
+            local b_stats = v.new_files[bi].stats
+
+            if a_stats then
+              v.cur_files[ai].stats = vim.tbl_extend("force", a_stats, b_stats or {})
+            else
+              v.cur_files[ai].stats = v.new_files[bi].stats
+            end
+
+            v.cur_files[ai].status = v.new_files[bi].status
+            v.cur_files[ai]:validate_stage_buffers(index_stat)
+
+            if new_head then
+              v.cur_files[ai]:update_heads(new_head)
+            end
+
+            ai = ai + 1
+            bi = bi + 1
           end
-
-          v.cur_files[ai].status = v.new_files[bi].status
-          v.cur_files[ai]:validate_stage_buffers(index_stat)
-
-          if new_head then
-            v.cur_files[ai]:update_heads(new_head)
-          end
-
-          ai = ai + 1
-          bi = bi + 1
 
         elseif opr == EditToken.DELETE then
           if self.panel.cur_file == v.cur_files[ai] then
